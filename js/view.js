@@ -188,7 +188,7 @@ function submitScoreToFlutter() {
 	// Ensure time is at least 1 second and at most timer duration
 	timeTaken = Math.max(1, Math.min(gameTimerDuration, timeTaken));
 	
-	var url = 'http://192.168.29.71:5006/api/v1/game-pools/' + poolId + '/sessions/' + sessionId + '/submit-score';
+	var url = 'https://api.metaninza.net/api/v1/game-pools/' + poolId + '/sessions/' + sessionId + '/submit-score';
 	var data = {
 		score: score,
 		time: timeTaken
