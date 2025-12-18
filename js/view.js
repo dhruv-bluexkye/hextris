@@ -188,7 +188,11 @@ function submitScoreToFlutter() {
 	// Ensure time is at least 1 second and at most timer duration
 	timeTaken = Math.max(1, Math.min(gameTimerDuration, timeTaken));
 	
-	var url = 'https://api.metaninza.net/api/v1/game-pools/' + poolId + '/sessions/' + sessionId + '/submit-score';
+	// Use injected API server URL or default
+	var baseUrl = apiServerUrl || 'https://api.metaninza.net';
+	// Remove trailing slash if present
+	baseUrl = baseUrl.replace(/\/$/, '');
+	var url = baseUrl + '/api/v1/game-pools/' + poolId + '/sessions/' + sessionId + '/submit-score';
 	var data = {
 		score: score,
 		time: timeTaken
@@ -202,17 +206,49 @@ function submitScoreToFlutter() {
 		},
 		body: JSON.stringify(data)
 	})
-	.then(response => {
-		if (!response.ok) {
-			throw new Error('Network response was not ok');
+	.then(async response => {
+		// Try to parse response as JSON (works for both success and error)
+		var responseData;
+		try {
+			responseData = await response.json();
+		} catch (e) {
+			// If JSON parsing fails, create error object
+			responseData = {
+				error: 'Failed to parse response',
+				message: response.statusText || 'Unknown error',
+				status: response.status
+			};
 		}
-		return response.json();
-	})
-	.then(data => {
-		console.log('Score submitted successfully:', data);
+		
+		if (!response.ok) {
+			// Non-200 status code - send error JSON to Flutter
+			console.error('Error submitting score:', responseData);
+			sendMessageToFlutter('scoreSubmitError', {
+				status: response.status,
+				error: responseData
+			});
+			return;
+		}
+		
+		// Success - send success response to Flutter
+		console.log('Score submitted successfully:', responseData);
+		sendMessageToFlutter('scoreSubmitSuccess', {
+			status: response.status,
+			data: responseData
+		});
 	})
 	.catch(error => {
+		// Network error or other fetch error
 		console.error('Error submitting score:', error);
+		var errorData = {
+			error: 'Network error',
+			message: error.message || 'Failed to submit score',
+			status: 0
+		};
+		sendMessageToFlutter('scoreSubmitError', {
+			status: 0,
+			error: errorData
+		});
 	});
 }
 

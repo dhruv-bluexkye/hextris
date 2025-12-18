@@ -4,6 +4,7 @@ var sessionId = null;
 var authToken = null;
 var gameStartTime = null;
 var gameTimerDuration = 15; // Default timer duration in seconds
+var apiServerUrl = 'https://api.metaninza.net'; // Default API server URL
 
 // Get URL parameters for Flutter integration (fallback method)
 function getUrlParameter(name) {
@@ -40,6 +41,13 @@ function initFlutterParams() {
 		} else if (window.__GAME_SESSION__.timer !== undefined) {
 			gameTimerDuration = parseInt(window.__GAME_SESSION__.timer) || 15;
 		}
+		
+		// Get API server URL from Flutter
+		if (window.__GAME_SESSION__.apiServerUrl) {
+			apiServerUrl = window.__GAME_SESSION__.apiServerUrl;
+		} else if (window.__GAME_SESSION__.apiServer) {
+			apiServerUrl = window.__GAME_SESSION__.apiServer;
+		}
 	} else {
 		// Fallback to URL parameters
 		poolId = getUrlParameter('poolId');
@@ -51,6 +59,12 @@ function initFlutterParams() {
 		if (urlTimer) {
 			gameTimerDuration = parseInt(urlTimer) || 15;
 		}
+		
+		// Get API server URL from URL parameter if available
+		var urlApiServer = getUrlParameter('apiServerUrl') || getUrlParameter('apiServer');
+		if (urlApiServer) {
+			apiServerUrl = urlApiServer;
+		}
 	}
 	
 	// Also listen for postMessage if embedded (additional fallback)
@@ -60,6 +74,12 @@ function initFlutterParams() {
 				poolId = event.data.poolId || poolId;
 				sessionId = event.data.sessionId || sessionId;
 				authToken = event.data.authToken || authToken;
+				if (event.data.timerDuration) {
+					gameTimerDuration = parseInt(event.data.timerDuration) || 15;
+				}
+				if (event.data.apiServerUrl || event.data.apiServer) {
+					apiServerUrl = event.data.apiServerUrl || event.data.apiServer;
+				}
 			}
 		});
 	}
@@ -79,7 +99,8 @@ function initFlutterParams() {
 		console.log('Flutter session initialized successfully', {
 			poolId: poolId,
 			sessionId: sessionId,
-			timerDuration: gameTimerDuration
+			timerDuration: gameTimerDuration,
+			apiServerUrl: apiServerUrl
 		});
 	} else {
 		console.log('Flutter session parameters not found - game will run without score submission');
@@ -97,6 +118,24 @@ function closeFlutterWindow() {
 	} else {
 		// Fallback: try to close window
 		window.close();
+	}
+}
+
+// Send message to Flutter app (for API responses, errors, etc.)
+function sendMessageToFlutter(type, data) {
+	var message = {
+		type: type,
+		data: data
+	};
+	
+	if (window.parent && window.parent !== window) {
+		// If in iframe, send message to parent
+		window.parent.postMessage(message, '*');
+	} else if (window.flutter_inappwebview) {
+		// If using Flutter InAppWebView
+		window.flutter_inappwebview.callHandler('onMessage', message);
+	} else {
+		console.log('Flutter message:', message);
 	}
 }
 

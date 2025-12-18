@@ -46,12 +46,13 @@ function render() {
 				$("#currentHighScore").css("color", "");
 			}
 		} else if (gameState === 0) {
-			// Show initial timer value when game hasn't started
-			$("#highScoreInGameText").show();
-			$("#currentHighScore").text(gameTimerDuration);
-			$("#currentHighScore").css("color", "");
+			// Hide timer on home page/start screen
+			$("#highScoreInGameText").hide();
 		} else if (gameState === 2) {
 			// Hide timer on game over screen
+			$("#highScoreInGameText").hide();
+		} else {
+			// Hide timer for all other states (paused, etc.)
 			$("#highScoreInGameText").hide();
 		}
 	}
