@@ -5,6 +5,9 @@ var authToken = null;
 var gameStartTime = null;
 var gameTimerDuration = 15; // Default timer duration in seconds
 var apiServerUrl = 'https://api.metaninza.net'; // Default API server URL
+var sessionReady = false; // Track if session parameters are ready
+var scoreSubmitting = false; // Track if score is being submitted
+var scoreSubmissionComplete = false; // Track if score submission is complete
 
 // Get URL parameters for Flutter integration (fallback method)
 function getUrlParameter(name) {
@@ -16,6 +19,17 @@ function getUrlParameter(name) {
 
 // Initialize Flutter parameters - priority: window.__GAME_SESSION__ > URL params > postMessage
 function initFlutterParams() {
+	// Request Flutter for parameters if not available
+	if (!window.__GAME_SESSION__ && !sessionId && !authToken) {
+		console.log('Requesting Flutter for session parameters...');
+		// Try to request via postMessage
+		if (window.parent && window.parent !== window) {
+			window.parent.postMessage({ type: 'requestSessionParams' }, '*');
+		} else if (window.flutter_inappwebview) {
+			window.flutter_inappwebview.callHandler('requestSessionParams');
+		}
+	}
+	
 	// First, try to get from window.__GAME_SESSION__ (Flutter InAppWebView injection)
 	if (window.__GAME_SESSION__) {
 		sessionId = window.__GAME_SESSION__.sessionId;
@@ -80,6 +94,14 @@ function initFlutterParams() {
 				if (event.data.apiServerUrl || event.data.apiServer) {
 					apiServerUrl = event.data.apiServerUrl || event.data.apiServer;
 				}
+				// Update session ready flag
+				if (sessionId && authToken) {
+					sessionReady = true;
+					// Show play button if on start screen
+					if (gameState === 0) {
+						$('#startBtn').fadeIn();
+					}
+				}
 			}
 		});
 	}
@@ -94,8 +116,9 @@ function initFlutterParams() {
 		console.log('DEBUG MODE: Using test parameters');
 	}
 	
-	// Log for debugging (remove in production if needed)
+	// Update session ready flag
 	if (sessionId && authToken) {
+		sessionReady = true;
 		console.log('Flutter session initialized successfully', {
 			poolId: poolId,
 			sessionId: sessionId,
@@ -103,7 +126,8 @@ function initFlutterParams() {
 			apiServerUrl: apiServerUrl
 		});
 	} else {
-		console.log('Flutter session parameters not found - game will run without score submission');
+		sessionReady = false;
+		console.log('Flutter session parameters not found - waiting for session...');
 	}
 }
 
@@ -139,22 +163,50 @@ function sendMessageToFlutter(type, data) {
 	}
 }
 
+// Function to check session and update UI
+function checkSessionAndUpdateUI() {
+	var wasReady = sessionReady;
+	initFlutterParams();
+	
+	// If session just became ready, show the play button
+	if (sessionReady && !wasReady && gameState === 0) {
+		$('#startBtn').fadeIn();
+	}
+	
+	// If session is not ready, keep checking periodically
+	if (!sessionReady) {
+		setTimeout(checkSessionAndUpdateUI, 500);
+	}
+}
+
 $(document).ready(function() {
 	initFlutterParams();
 	
 	// Also check for session after a short delay (in case it's injected after page load)
 	setTimeout(function() {
-		if (!sessionId || !authToken) {
-			// Re-check for session (might have been injected after initial load)
-			initFlutterParams();
-		}
+		checkSessionAndUpdateUI();
 	}, 100);
 	
 	// Also check on window load event
 	$(window).on('load', function() {
-		if (!sessionId || !authToken) {
-			initFlutterParams();
+		checkSessionAndUpdateUI();
+	});
+	
+	// Start periodic checking if session not ready
+	if (!sessionReady) {
+		setTimeout(checkSessionAndUpdateUI, 500);
+	}
+	
+	// Re-check on visibility change (in case Flutter injects params when page becomes visible)
+	document.addEventListener('visibilitychange', function() {
+		if (!document.hidden) {
+			checkSessionAndUpdateUI();
 		}
+	});
+	
+	// Also listen for focus events
+	window.addEventListener('focus', function() {
+		checkSessionAndUpdateUI();
 	});
 	
 	initialize();

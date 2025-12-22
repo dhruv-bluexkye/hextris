@@ -42,7 +42,12 @@ function drawScoreboard() {
 	if (gameState === 0) {
 		renderText(trueCanvas.width / 2 + gdx + 6 * settings.scale, trueCanvas.height / 2 + gdy, 60, "rgb(236, 240, 241)", String.fromCharCode("0xf04b"), 'px FontAwesome');
 		renderText(trueCanvas.width / 2 + gdx + 6 * settings.scale, trueCanvas.height / 2.1 + gdy - 155 * settings.scale, 150, "#2c3e50", "Hextris");
-		renderText(trueCanvas.width / 2 + gdx + 5 * settings.scale, h + 10, fontSize, "rgb(44,62,80)", 'Play!');
+		// Show "Setting up your session" if session not ready, otherwise show "Play!"
+		if (!sessionReady) {
+			renderText(trueCanvas.width / 2 + gdx + 5 * settings.scale, h + 10, fontSize, "rgb(44,62,80)", 'Setting up your session...');
+		} else {
+			renderText(trueCanvas.width / 2 + gdx + 5 * settings.scale, h + 10, fontSize, "rgb(44,62,80)", 'Play!');
+		}
 	} else if (gameState != 0 && textOpacity > 0) {
 		textOpacity -= 0.05;
 		renderText(trueCanvas.width / 2 + gdx + 6 * settings.scale, trueCanvas.height / 2 + gdy, 60, "rgb(236, 240, 241)", String.fromCharCode("0xf04b"), 'px FontAwesome');
@@ -145,7 +150,22 @@ function gameOverDisplay() {
 	$("#highScoreInGameText").hide();
 	$("#gameoverscreen").fadeIn();
 	$("#container").fadeIn();
-	$("#backButton").fadeIn();
+	
+	// Reset score submission state
+	scoreSubmitting = false;
+	scoreSubmissionComplete = false;
+	
+	// Hide back button initially - will show after score submission
+	$("#backButton").hide();
+	
+	// Update game over message to show "Submitting score..."
+	if (poolId && sessionId && authToken) {
+		$("#gameOverBox").text("Submitting score...");
+	} else {
+		$("#gameOverBox").text("GAME OVER");
+		// If no session, show back button immediately
+		$("#backButton").fadeIn();
+	}
 	
 	// Submit score to Flutter backend
 	submitScoreToFlutter();
@@ -168,8 +188,15 @@ function updateHighScores (){
 function submitScoreToFlutter() {
 	if (!poolId || !sessionId || !authToken) {
 		console.log('Flutter parameters not available. Score not submitted.');
+		// Show back button if no session
+		$("#backButton").fadeIn();
+		$("#gameOverBox").text("GAME OVER");
 		return;
 	}
+	
+	// Mark that we're submitting
+	scoreSubmitting = true;
+	scoreSubmissionComplete = false;
 	
 	// Calculate time taken in seconds
 	// If timer reached 0, time is full timer duration
@@ -227,6 +254,11 @@ function submitScoreToFlutter() {
 				status: response.status,
 				error: responseData
 			});
+			// Mark submission as complete (even if error) and show back button
+			scoreSubmitting = false;
+			scoreSubmissionComplete = true;
+			$("#gameOverBox").text("GAME OVER");
+			$("#backButton").fadeIn();
 			return;
 		}
 		
@@ -236,6 +268,12 @@ function submitScoreToFlutter() {
 			status: response.status,
 			data: responseData
 		});
+		
+		// Mark submission as complete and show back button
+		scoreSubmitting = false;
+		scoreSubmissionComplete = true;
+		$("#gameOverBox").text("GAME OVER");
+		$("#backButton").fadeIn();
 	})
 	.catch(error => {
 		// Network error or other fetch error
@@ -249,6 +287,12 @@ function submitScoreToFlutter() {
 			status: 0,
 			error: errorData
 		});
+		
+		// Mark submission as complete (even if error) and show back button
+		scoreSubmitting = false;
+		scoreSubmissionComplete = true;
+		$("#gameOverBox").text("GAME OVER");
+		$("#backButton").fadeIn();
 	});
 }
 

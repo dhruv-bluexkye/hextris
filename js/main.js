@@ -203,7 +203,6 @@ function exportHistory() {
 }
 
 function setStartScreen() {
-	$('#startBtn').show();
 	init();
 	if (isStateSaved()) {
 		importing = 0;
@@ -211,7 +210,12 @@ function setStartScreen() {
 		importing = 1;
 	}
 
-	$('#startBtn').show();
+	// Only show play button if session is ready
+	if (sessionReady) {
+		$('#startBtn').show();
+	} else {
+		$('#startBtn').hide();
+	}
 
 	gameState = 0;
 	requestAnimFrame(animLoop);

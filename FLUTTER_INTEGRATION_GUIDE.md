@@ -108,6 +108,10 @@ function initFlutterParams() {
 				if (event.data.timerDuration) {
 					gameTimerDuration = parseInt(event.data.timerDuration) || 15;
 				}
+				// Allow API server to be passed via postMessage
+				if (event.data.apiServerUrl || event.data.apiServer) {
+					apiServerUrl = event.data.apiServerUrl || event.data.apiServer;
+				}
 			}
 		});
 	}
@@ -119,10 +123,6 @@ function initFlutterParams() {
 		poolId = getUrlParameter('poolId') || poolId || 'test-pool-123';
 		sessionId = getUrlParameter('sessionId') || sessionId || 'test-session-456';
 		authToken = getUrlParameter('authToken') || authToken || 'test-token-789';
-		var debugApiServer = getUrlParameter('apiServerUrl') || getUrlParameter('apiServer');
-		if (debugApiServer) {
-			apiServerUrl = debugApiServer;
-		}
 		console.log('DEBUG MODE: Using test parameters');
 	}
 	
@@ -145,20 +145,27 @@ function initFlutterParams() {
 ```javascript
 $(document).ready(function() {
 	initFlutterParams();
-	
-	// Re-initialize on visibility change (in case Flutter injects params later)
-	document.addEventListener('visibilitychange', function() {
-		if (!document.hidden) {
+
+	// Re-check shortly after load in case Flutter injects params late
+	setTimeout(function() {
+		if (!sessionId || !authToken) {
+			initFlutterParams();
+		}
+	}, 100);
+
+	// Double-check once window is fully loaded
+	$(window).on('load', function() {
+		if (!sessionId || !authToken) {
 			initFlutterParams();
 		}
 	});
-	
-	// Also listen for focus events
-	window.addEventListener('focus', function() {
-		initFlutterParams();
-	});
+
+	// Start the game after params are initialized
+	initialize();
 });
 ```
+
+> Note: The API server URL still follows the same priority (injected session ➜ URL params ➜ default). When testing with `debug=true`, use `apiServerUrl` in the URL if you need a non-default server.
 
 ---
 
